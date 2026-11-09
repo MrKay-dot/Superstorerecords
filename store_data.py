@@ -1,13 +1,17 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import TYPE_CHECKING
 import math as m
+
+if TYPE_CHECKING:
+    from pandas import DataFrame
 
 try:
     import pandas as pd
 except (ImportError, ModuleNotFoundError) as exc:
     pd = None
-    IMPORT_ERROR = exc
+    IMPORT_ERROR = exc # pyright: ignore[reportConstantRedefinition]
 else:
     IMPORT_ERROR = None
 
@@ -16,19 +20,19 @@ try:
 except (ImportError, ModuleNotFoundError) as exc:
     st = None
     if IMPORT_ERROR is None:
-        IMPORT_ERROR = exc
+        IMPORT_ERROR = exc # pyright: ignore[reportConstantRedefinition]
 
 
-def _cache_data(*args, **kwargs):
+def _cache_data(*args, **kwargs): # type: ignore
     if st is None:
-        if args and callable(args[0]) and len(args) == 1 and not kwargs:
+        if args and callable(args[0]) and len(args) == 1 and not kwargs: # type: ignore
             return args[0]
 
-        def decorator(func):
-            return func
+        def decorator(func): # type: ignore
+            return func # type: ignore
 
-        return decorator
-    return st.cache_data(*args, **kwargs)
+        return decorator # type: ignore
+    return st.cache_data(*args, **kwargs) # pyright: ignore[reportUnknownArgumentType]
 
 
 DATA_FILE = Path(__file__).with_name("SuperStoreData.xlsx")
@@ -50,9 +54,11 @@ REQUIRED_COLUMNS = {
 }
 
 
-@_cache_data(show_spinner="Loading store data...")
-def load_data(file_path: str = str(DATA_FILE)) -> pd.DataFrame:
-    data = pd.read_excel(file_path)
+@_cache_data(show_spinner="Loading store data...") # type: ignore
+def load_data(file_path: str = str(DATA_FILE)) -> DataFrame:
+    if pd is None:
+        raise RuntimeError("pandas is required to load store data") from IMPORT_ERROR
+    data = pd.read_excel(file_path)  # pyright: ignore[reportUnknownMemberType]
     missing_columns = REQUIRED_COLUMNS.difference(data.columns)
     if missing_columns:
         raise ValueError(f"Workbook is missing required columns: {', '.join(sorted(missing_columns))}")
@@ -63,16 +69,19 @@ def load_data(file_path: str = str(DATA_FILE)) -> pd.DataFrame:
     return data.dropna(subset=["Order Date", "Sales", "Profit", "Quantity"])
 
 
-def load_or_stop() -> pd.DataFrame:
+def load_or_stop() -> DataFrame:
     if pd is None:
         message = (
-            "Required data dependencies are unavailable. Install pandas and numpy "
-            f"to load the sales workbook. Details: {IMPORT_ERROR}"
+            "Required data dependencies are unavailable. Run "
+            "`python -m pip install -r requirements.txt` with the same Python "
+            f"environment used to start the app. Details: {IMPORT_ERROR}"
         )
         if st is None:
             raise RuntimeError(message) from IMPORT_ERROR
         st.error(message, icon=":material/error:")
         st.stop()
+    if st is None:
+        raise RuntimeError("streamlit is required to display store data") from IMPORT_ERROR
     if not DATA_FILE.is_file():
         st.error(
             f"Could not find {DATA_FILE.name}. Place the workbook beside "
@@ -87,7 +96,9 @@ def load_or_stop() -> pd.DataFrame:
         st.stop()
 
 
-def render_filters(data: pd.DataFrame) -> pd.DataFrame:
+def render_filters(data: DataFrame) -> DataFrame:
+    if st is None:
+        raise RuntimeError("streamlit is required to render store filters") from IMPORT_ERROR
     with st.sidebar:
         st.markdown("## :material/storefront: Londoner Superstore")
         st.caption("Sales intelligence")
@@ -119,13 +130,17 @@ def render_filters(data: pd.DataFrame) -> pd.DataFrame:
     return filtered_data
 
 
-def stop_if_empty(data: pd.DataFrame) -> None:
+def stop_if_empty(data: DataFrame) -> None:
+    if st is None:
+        raise RuntimeError("streamlit is required to display store warnings") from IMPORT_ERROR
     if data.empty:
         st.warning("No sales records match these filters. Choose a different filter combination.")
         st.stop()
 
 
-def build_forecast(data: pd.DataFrame, years: int) -> tuple[pd.DataFrame, pd.DataFrame]:
+def build_forecast(data: DataFrame, years: int) -> tuple[DataFrame, DataFrame]:
+    if pd is None:
+        raise RuntimeError("pandas is required to build a sales forecast") from IMPORT_ERROR
     monthly_sales = data.set_index("Order Date")["Sales"].resample("MS").sum().asfreq("MS", fill_value=0)
     if len(monthly_sales) < 2:
         history = monthly_sales.rename("Sales").rename_axis("Month").reset_index()
@@ -143,7 +158,7 @@ def build_forecast(data: pd.DataFrame, years: int) -> tuple[pd.DataFrame, pd.Dat
     trend = [intercept + slope * time for time in time_index]
     residuals = [sales - fitted for sales, fitted in zip(sales_values, trend)]
     seasonal_effect = (
-        pd.Series(residuals, index=monthly_sales.index.month)
+        pd.Series(residuals, index=monthly_sales.index.month) # type: ignore
         .groupby(level=0)
         .mean()
         .reindex(range(1, 13), fill_value=0)
