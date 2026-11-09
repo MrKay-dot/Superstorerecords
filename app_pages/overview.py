@@ -1,5 +1,5 @@
 import altair as alt
-import pandas as pd
+import pandas as pd # type: ignore
 import streamlit as st
 
 from store_data import load_or_stop, render_filters, stop_if_empty
