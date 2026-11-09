@@ -1,0 +1,5 @@
+altair
+numpy
+openpyxl
+pandas
+streamlit>=1.57
